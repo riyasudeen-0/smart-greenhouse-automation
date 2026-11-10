@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Smart Greenhouse</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #eef5ef;
+            color: #1f2937;
+        }
+
+        .header {
+            background: #173d2a;
+            color: white;
+            padding: 28px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 34px;
+        }
+
+        .header p {
+            margin: 8px 0 0;
+            opacity: 0.85;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+            padding: 25px;
+        }
+
+        .connection {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .card,
+        .panel,
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+
+        .card {
+            padding: 25px;
+            text-align: center;
+        }
+
+        .label {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        .value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            padding: 24px;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+        }
+
+        .status-value {
+            font-size: 30px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .control-panel {
+            margin-bottom: 20px;
+        }
+
+        .control-section {
+            margin-top: 20px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 12px 18px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #e5e7eb;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        .active-mode {
+            outline: 3px solid #111827;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .weather-item {
+            background: #f4f7f5;
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .weather-item .number {
+            font-size: 26px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .decision {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    padding: 20px 24px;
+}
+
+       #decisionText {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+       #decisionReason {
+    color: #4b5563;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+        .chart-card {
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-card h2 {
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 280px !important;
+        }
+
+        @media (max-width: 750px) {
+            .cards,
+            .status-grid,
+            .weather-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    <h1>🌱 Smart Greenhouse</h1>
+    <p>Intelligent Monitoring & Irrigation System</p>
+</div>
+
+<div class="container">
+
+    <div id="connection" class="connection">
+        🟡 Connecting to Arduino...
+    </div>
+
+    <!-- LIVE SENSOR DATA -->
+
+    <div class="cards">
+
+        <div class="card">
+            <div class="label">🌡️ Temperature</div>
+            <div class="value">
+                <span id="temperature">--</span> °C
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="label">💧 Humidity</div>
+            <div class="value">
+                <span id="humidity">--</span> %
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="label">🌱 Soil Moisture</div>
+            <div class="value">
+                <span id="soil">--</span> %
+            </div>
+        </div>
+
+    </div>
+
+    <!-- DEVICE STATUS -->
+
+    <div class="status-grid">
+
+        <div class="panel">
+            <div class="label">💦 Water Pump</div>
+            <div id="pump" class="status-value">OFF</div>
+        </div>
+
+        <div class="panel">
+            <div class="label">🌀 Cooling Fan</div>
+            <div id="fan" class="status-value">OFF</div>
+        </div>
+
+    </div>
+
+    <!-- CONTROLS -->
+
+    <div class="panel control-panel">
+
+        <h2>🎛 System Control</h2>
+
+        <div class="control-section">
+            <strong>Operating Mode</strong>
+
+            <div class="button-row">
+
+                <button id="autoButton"
+                        onclick="sendCommand('AUTO')">
+                    🤖 AUTO
+                </button>
+
+                <button id="manualButton"
+                        onclick="sendCommand('MANUAL')">
+                    ✋ MANUAL
+                </button>
+
+            </div>
+        </div>
+
+        <div class="control-section">
+            <strong>Water Pump</strong>
+
+            <div class="button-row">
+
+                <button onclick="sendCommand('PUMP_ON')">
+                    💦 Pump ON
+                </button>
+
+                <button onclick="sendCommand('PUMP_OFF')">
+                    ⛔ Pump OFF
+                </button>
+
+            </div>
+        </div>
+
+        <div class="control-section">
+            <strong>Cooling Fan</strong>
+
+            <div class="button-row">
+
+                <button onclick="sendCommand('FAN_ON')">
+                    🌀 Fan ON
+                </button>
+
+                <button onclick="sendCommand('FAN_OFF')">
+                    ⛔ Fan OFF
+                </button>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- WEATHER -->
+
+    <div class="panel">
+
+        <h2>🌦️ Weather Forecast</h2>
+
+        <div class="weather-grid">
+
+            <div class="weather-item">
+                <div class="label">Forecast Temperature</div>
+                <div class="number">
+                    <span id="forecastTemperature">--</span> °C
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <div class="label">Rain Probability</div>
+                <div class="number">
+                    <span id="rainProbability">--</span> %
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <div class="label">Rain in Next 3 Hours</div>
+                <div class="number">
+                    <span id="rainNext3h">--</span> mm
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- SMART DECISION -->
+
+    <div class="panel decision">
+
+        <h2>🧠 Smart Irrigation Decision</h2>
+
+        <div id="decisionText">
+            Waiting for data...
+        </div>
+
+        <div id="decisionReason">
+            --
+        </div>
+
+    </div>
+
+    <!-- GRAPHS -->
+
+    <div class="chart-card">
+        <h2>🌡️ Temperature History</h2>
+        <canvas id="temperatureChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+        <h2>💧 Humidity History</h2>
+        <canvas id="humidityChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+        <h2>🌱 Soil Moisture History</h2>
+        <canvas id="soilChart"></canvas>
+    </div>
+
+</div>
+
+
+<script>
+
+const MAX_POINTS = 30;
+
+const labels = [];
+const temperatureData = [];
+const humidityData = [];
+const soilData = [];
+
+
+function createChart(canvasId, label, data, min, max) {
+
+    return new Chart(
+        document.getElementById(canvasId),
+        {
+            type: "line",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    label: label,
+                    data: data,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false
+                }]
+            },
+
+            options: {
+                responsive: true,
+                animation: false,
+
+                scales: {
+                    y: {
+                        min: min,
+                        max: max
+                    }
+                }
+            }
+        }
+    );
+}
+
+
+const temperatureChart = createChart(
+    "temperatureChart",
+    "Temperature (°C)",
+    temperatureData,
+    0,
+    50
+);
+
+const humidityChart = createChart(
+    "humidityChart",
+    "Humidity (%)",
+    humidityData,
+    0,
+    100
+);
+
+const soilChart = createChart(
+    "soilChart",
+    "Soil Moisture (%)",
+    soilData,
+    0,
+    100
+);
+
+
+async function updateDashboard() {
+
+    try {
+
+        const response = await fetch("/api/data");
+
+        const data = await response.json();
+
+
+        // -----------------------------
+        // SENSOR DATA
+        // -----------------------------
+
+        if (data.temperature !== null) {
+            document.getElementById("temperature").textContent =
+                Number(data.temperature).toFixed(1);
+        }
+
+        if (data.humidity !== null) {
+            document.getElementById("humidity").textContent =
+                Number(data.humidity).toFixed(1);
+        }
+
+        if (data.soil_percent !== null) {
+            document.getElementById("soil").textContent =
+                Number(data.soil_percent).toFixed(1);
+        }
+
+
+        // -----------------------------
+        // PUMP / FAN
+        // -----------------------------
+
+        document.getElementById("pump").textContent =
+            data.pump;
+
+        document.getElementById("fan").textContent =
+            data.fan;
+
+
+        // -----------------------------
+        // MODE
+        // -----------------------------
+
+        if (data.mode === "AUTO") {
+
+            document.getElementById("autoButton")
+                .classList.add("active-mode");
+
+            document.getElementById("manualButton")
+                .classList.remove("active-mode");
+
+        } else {
+
+            document.getElementById("manualButton")
+                .classList.add("active-mode");
+
+            document.getElementById("autoButton")
+                .classList.remove("active-mode");
+        }
+
+
+        // -----------------------------
+        // WEATHER
+        // -----------------------------
+
+        if (data.weather) {
+
+            if (data.weather.forecast_temperature !== null) {
+
+                document.getElementById("forecastTemperature")
+                    .textContent =
+                    Number(data.weather.forecast_temperature)
+                    .toFixed(1);
+            }
+
+            if (data.weather.rain_probability !== null) {
+
+                document.getElementById("rainProbability")
+                    .textContent =
+                    Number(data.weather.rain_probability);
+            }
+
+            if (data.weather.rain_next_3h !== null) {
+
+                document.getElementById("rainNext3h")
+                    .textContent =
+                    Number(data.weather.rain_next_3h)
+                    .toFixed(1);
+            }
+        }
+
+
+        // -----------------------------
+        // SMART DECISION
+        // -----------------------------
+
+        if (data.irrigation_decision) {
+
+            document.getElementById("decisionText")
+                .textContent =
+                data.irrigation_decision.status;
+
+            document.getElementById("decisionReason")
+                .textContent =
+                data.irrigation_decision.reason;
+        }
+
+
+        // -----------------------------
+        // CONNECTION
+        // -----------------------------
+
+        document.getElementById("connection")
+            .textContent =
+            "🟢 Arduino connected";
+
+
+        // -----------------------------
+        // GRAPH
+        // -----------------------------
+
+        const now = new Date();
+
+        const time =
+            now.getHours().toString().padStart(2, "0")
+            + ":" +
+            now.getMinutes().toString().padStart(2, "0")
+            + ":" +
+            now.getSeconds().toString().padStart(2, "0");
+
+
+        labels.push(time);
+
+        temperatureData.push(
+            data.temperature !== null
+                ? Number(data.temperature)
+                : null
+        );
+
+        humidityData.push(
+            data.humidity !== null
+                ? Number(data.humidity)
+                : null
+        );
+
+        soilData.push(
+            data.soil_percent !== null
+                ? Number(data.soil_percent)
+                : null
+        );
+
+
+        if (labels.length > MAX_POINTS) {
+
+            labels.shift();
+            temperatureData.shift();
+            humidityData.shift();
+            soilData.shift();
+        }
+
+
+        temperatureChart.update();
+        humidityChart.update();
+        soilChart.update();
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        document.getElementById("connection")
+            .textContent =
+            "🔴 Arduino connection problem";
+    }
+}
+
+
+// -----------------------------
+// SEND COMMAND
+// -----------------------------
+
+async function sendCommand(command) {
+
+    try {
+
+        const response = await fetch(
+            "/api/command",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    command: command
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!result.success) {
+
+            alert(
+                "Command failed: " +
+                (result.error || "Unknown error")
+            );
+
+        } else {
+
+            console.log(
+                "Command sent:",
+                command
+            );
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        alert(
+            "Could not communicate with Arduino."
+        );
+    }
+}
+
+
+// Start dashboard
+updateDashboard();
+
+setInterval(
+    updateDashboard,
+    2000
+);
+
+</script>
+
+</body>
+</html>
